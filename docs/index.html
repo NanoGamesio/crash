@@ -124,6 +124,7 @@
   </section>
     <script type="text/javascript">
       var isVerifying = false;
+      const salt = '0000000000000000000fd438478cd50a858def3b606d43dfe12a22144f3a5f1b';
       $('#game_verify_submit').on('click', () => {
         if (isVerifying) return;
         isVerifying = true;
@@ -134,7 +135,7 @@
         let prevHash = null;
         for (let i = 0; i < $('#game_amount_input').val(); i++) {
           let hash = String(prevHash ? CryptoJS.SHA256(String(prevHash)) : $('#game_hash_input').val());
-          let bust = gameResult(hash);
+          let bust = gameResult(hash, salt);
           setTimeout(function() {
             addTableRow(hash, bust, i)
           }, i * 1);
@@ -173,16 +174,24 @@
           isVerifying = false;
         }
       };
-      const gameResult = (seed) => {
+      const gameResult = (seed, salt) => {
         const nBits = 52; // number of most significant bits to use
-        // 1. r = 52 most significant bits
+
+        // 1. HMAC_SHA256(message=seed, key=salt)  
+        const hmac = CryptoJS.HmacSHA256(CryptoJS.enc.Hex.parse(seed), salt);
+        seed = hmac.toString(CryptoJS.enc.Hex);
+
+        // 2. r = 52 most significant bits
         seed = seed.slice(0, nBits / 4);
         const r = parseInt(seed, 16);
-        // 2. X = r / 2^52
+
+        // 3. X = r / 2^52
         let X = r / Math.pow(2, nBits); // uniformly distributed in [0; 1)
-        // 3. X = 99 / (1-X)
+
+        // 4. X = 99 / (1-X)
         X = 99 / (1 - X);
-        // 4. return max(trunc(X), 100)
+
+        // 5. return max(trunc(X), 100)
         const result = Math.floor(X);
         return Math.max(1, result / 100);
       };
